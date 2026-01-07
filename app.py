@@ -417,7 +417,7 @@ with tab_main:
 # 5. バリデーション (詳細版完全復元)
 # ---------------------------------------------------------
 with tab_val:
-    st.header("🏆 性能バリデーションサマリー")
+    st.header("🏆 性能バリデーションサマリー")
     st.markdown("""
     * **検証用データセット:** BBBC005 (Broad Bioimage Benchmark Collection)
     * **検証規模:** 3,200枚 (ハイスループット検証)
