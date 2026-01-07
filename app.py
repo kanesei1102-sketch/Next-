@@ -407,78 +407,72 @@ with tab_main:
         csv_data = df_exp.to_csv(index=False).encode('utf-8-sig')
         st.download_button("📥 結果CSVダウンロード", csv_data, f"QuantData_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
 
-
-
-
-
-
-
 # ---------------------------------------------------------
 # 5. バリデーション (詳細版完全復元)
 # ---------------------------------------------------------
 with tab_val:
     st.header("🏆 性能バリデーションサマリー")
-    st.markdown("""
-    * **検証用データセット:** BBBC005 (Broad Bioimage Benchmark Collection)
-    * **検証規模:** 3,200枚 (ハイスループット検証)
-    * **検証手法:** 密度別の各グループに対しパラメータを最適化し、適切なキャリブレーション下での最大性能を実証。
-    """)
+    st.markdown("""
+    * **検証用データセット:** BBBC005 (Broad Bioimage Benchmark Collection)
+    * **検証規模:** 3,200枚 (ハイスループット検証)
+    * **検証手法:** 密度別の各グループに対しパラメータを最適化し、適切なキャリブレーション下での最大性能を実証。
+    """)
 
-    if not df_val.empty:
-        gt_map = {'C14': 14, 'C40': 40, 'C70': 70, 'C100': 100}
-        df_hq = df_val[(df_val['Focus'] >= 1) & (df_val['Focus'] <= 5)]
-        w1_hq = df_hq[df_hq['Channel'] == 'W1']
-        avg_acc = w1_hq['Accuracy'].mean()
-        df_lin = w1_hq.groupby('Ground Truth')['Value'].mean().reset_index()
-        r2 = np.corrcoef(df_lin['Ground Truth'], df_lin['Value'])[0, 1]**2
+    if not df_val.empty:
+        gt_map = {'C14': 14, 'C40': 40, 'C70': 70, 'C100': 100}
+        df_hq = df_val[(df_val['Focus'] >= 1) & (df_val['Focus'] <= 5)]
+        w1_hq = df_hq[df_hq['Channel'] == 'W1']
+        avg_acc = w1_hq['Accuracy'].mean()
+        df_lin = w1_hq.groupby('Ground Truth')['Value'].mean().reset_index()
+        r2 = np.corrcoef(df_lin['Ground Truth'], df_lin['Value'])[0, 1]**2
 
-        m1, m2, m3 = st.columns(3)
-        m1.metric("平均精度 (Accuracy)", f"{avg_acc:.1f}%")
-        m2.metric("線形性 (R²)", f"{r2:.4f}")
-        m3.metric("検証画像数", "3,200+")
+        m1, m2, m3 = st.columns(3)
+        m1.metric("平均精度 (Accuracy)", f"{avg_acc:.1f}%")
+        m2.metric("線形性 (R²)", f"{r2:.4f}")
+        m3.metric("検証画像数", "3,200+")
 
-        st.subheader("1. 線形性評価")
-        fig1, ax1 = plt.subplots(figsize=(10, 5))
-        ax1.plot([0, 110], [0, 110], 'k--', alpha=0.3, label='Ideal Line')
-        ax1.scatter(df_lin['Ground Truth'], df_lin['Value'], color='#1f77b4', s=100, label='W1 (Nuclei)', zorder=5)
-        w2_lin = df_hq[df_hq['Channel'] == 'W2'].groupby('Ground Truth')['Value'].mean().reset_index()
-        ax1.scatter(w2_lin['Ground Truth'], w2_lin['Value'], color='#ff7f0e', s=100, marker='D', label='W2 (Cytoplasm)', zorder=5)
-        z = np.polyfit(df_lin['Ground Truth'], df_lin['Value'], 1)
-        ax1.plot(df_lin['Ground Truth'], np.poly1d(z)(df_lin['Ground Truth']), '#1f77b4', alpha=0.5, label='W1 Reg')
-        ax1.set_xlabel('Ground Truth (理論値)'); ax1.set_ylabel('Measured Value (実測値)'); ax1.legend(); ax1.grid(True, alpha=0.3)
-        st.pyplot(fig1)
+        st.subheader("1. 線形性評価")
+        fig1, ax1 = plt.subplots(figsize=(10, 5))
+        ax1.plot([0, 110], [0, 110], 'k--', alpha=0.3, label='Ideal Line')
+        ax1.scatter(df_lin['Ground Truth'], df_lin['Value'], color='#1f77b4', s=100, label='W1 (Nuclei)', zorder=5)
+        w2_lin = df_hq[df_hq['Channel'] == 'W2'].groupby('Ground Truth')['Value'].mean().reset_index()
+        ax1.scatter(w2_lin['Ground Truth'], w2_lin['Value'], color='#ff7f0e', s=100, marker='D', label='W2 (Cytoplasm)', zorder=5)
+        z = np.polyfit(df_lin['Ground Truth'], df_lin['Value'], 1)
+        ax1.plot(df_lin['Ground Truth'], np.poly1d(z)(df_lin['Ground Truth']), '#1f77b4', alpha=0.5, label='W1 Reg')
+        ax1.set_xlabel('Ground Truth (理論値)'); ax1.set_ylabel('Measured Value (実測値)'); ax1.legend(); ax1.grid(True, alpha=0.3)
+        st.pyplot(fig1)
 
-        st.divider()
-        c1, c2 = st.columns(2)
-        with c1:
-            st.subheader("📊 2. 密度別精度比較")
-            fig2, ax2 = plt.subplots(figsize=(8, 6))
-            df_bar = df_hq.groupby(['Density', 'Channel'])['Accuracy'].mean().reset_index()
-            df_bar['Density'] = pd.Categorical(df_bar['Density'], categories=['C14', 'C40', 'C70', 'C100'], ordered=True)
-            sns.barplot(data=df_bar, x='Density', y='Accuracy', hue='Channel', palette={'W1': '#1f77b4', 'W2': '#ff7f0e'}, ax=ax2)
-            ax2.axhline(100, color='red', linestyle='--'); ax2.set_ylabel('精度 Accuracy (%)')
-            st.pyplot(fig2)
-        with c2:
-            st.subheader("📉 3. 光学的堅牢性 (ボケ耐性)")
-            fig3, ax3 = plt.subplots(figsize=(8, 6))
-            df_decay = df_val[df_val['Channel'] == 'W1'].copy()
-            df_decay['Density'] = pd.Categorical(df_decay['Density'], categories=['C14', 'C40', 'C70', 'C100'], ordered=True)
-            sns.lineplot(data=df_decay, x='Focus', y='Accuracy', hue='Density', marker='o', ax=ax3)
-            ax3.axhline(100, color='red', linestyle='--'); ax3.set_ylabel('精度 Accuracy (%)')
-            st.pyplot(fig3)
-        st.divider()
-        st.subheader("📋 4. バリデーション数値データ")
-        summary = df_hq.groupby(['Density', 'Channel'])['Accuracy'].mean().unstack().reset_index()
-        summary['理論値'] = summary['Density'].map(gt_map)
-        summary['W1実測'] = (summary['W1']/100)*summary['理論値']
-        summary['W2実測'] = (summary['W2']/100)*summary['理論値']
-        summary['Density'] = pd.Categorical(summary['Density'], categories=['C14', 'C40', 'C70', 'C100'], ordered=True)
-        summary = summary.sort_values('Density')
-        st.table(summary[['Density', '理論値', 'W1', 'W1実測', 'W2', 'W2実測']].rename(columns={
-            'W1': 'W1 精度(%)', 'W1実測': 'W1 平均カウント', 'W2': 'W2 精度(%)', 'W2実測': 'W2 平均カウント'
-        }))
-        st.info("💡 **総合結論:** W1（核）は全密度領域で高精度を維持。W2（細胞質）は過小・過剰評価の変動が激しく、科学的に定量解析には推奨されません。")
-    else:
-        st.error("バリデーション用CSVファイルが見てかりません。リポジトリのルートに配置してください。")
+        st.divider()
+        c1, c2 = st.columns(2)
+        with c1:
+            st.subheader("📊 2. 密度別精度比較")
+            fig2, ax2 = plt.subplots(figsize=(8, 6))
+            df_bar = df_hq.groupby(['Density', 'Channel'])['Accuracy'].mean().reset_index()
+            df_bar['Density'] = pd.Categorical(df_bar['Density'], categories=['C14', 'C40', 'C70', 'C100'], ordered=True)
+            sns.barplot(data=df_bar, x='Density', y='Accuracy', hue='Channel', palette={'W1': '#1f77b4', 'W2': '#ff7f0e'}, ax=ax2)
+            ax2.axhline(100, color='red', linestyle='--'); ax2.set_ylabel('精度 Accuracy (%)')
+            st.pyplot(fig2)
+        with c2:
+            st.subheader("📉 3. 光学的堅牢性 (ボケ耐性)")
+            fig3, ax3 = plt.subplots(figsize=(8, 6))
+            df_decay = df_val[df_val['Channel'] == 'W1'].copy()
+            df_decay['Density'] = pd.Categorical(df_decay['Density'], categories=['C14', 'C40', 'C70', 'C100'], ordered=True)
+            sns.lineplot(data=df_decay, x='Focus', y='Accuracy', hue='Density', marker='o', ax=ax3)
+            ax3.axhline(100, color='red', linestyle='--'); ax3.set_ylabel('精度 Accuracy (%)')
+            st.pyplot(fig3)
+        st.divider()
+        st.subheader("📋 4. バリデーション数値データ")
+        summary = df_hq.groupby(['Density', 'Channel'])['Accuracy'].mean().unstack().reset_index()
+        summary['理論値'] = summary['Density'].map(gt_map)
+        summary['W1実測'] = (summary['W1']/100)*summary['理論値']
+        summary['W2実測'] = (summary['W2']/100)*summary['理論値']
+        summary['Density'] = pd.Categorical(summary['Density'], categories=['C14', 'C40', 'C70', 'C100'], ordered=True)
+        summary = summary.sort_values('Density')
+        st.table(summary[['Density', '理論値', 'W1', 'W1実測', 'W2', 'W2実測']].rename(columns={
+            'W1': 'W1 精度(%)', 'W1実測': 'W1 平均カウント', 'W2': 'W2 精度(%)', 'W2実測': 'W2 平均カウント'
+        }))
+        st.info("💡 **総合結論:** W1（核）は全密度領域で高精度を維持。W2（細胞質）は過小・過剰評価の変動が激しく、科学的に定量解析には推奨されません。")
+    else:
+        st.error("バリデーション用CSVファイルが見てかりません。リポジトリのルートに配置してください。")
 
 
